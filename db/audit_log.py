@@ -18,6 +18,10 @@ class AuditLogMixin:
     db: aiosqlite.Connection | None
 
     async def _create_tables(self) -> None:
+        """
+        创建审计日志表及其索引。
+        如果表或索引已存在，则不会重复创建。
+        """
         if not self.db:
             raise DBError("数据库未初始化")
         try:
@@ -43,6 +47,16 @@ class AuditLogMixin:
             raise DBError(f"创建审计日志表失败: {e}")
 
     async def add_audit_log(self, result: CensorResult) -> str:
+        """
+        添加一条审计日志记录。
+
+        Args:
+            result: 审查结果对象，包含消息内容、来源、时间戳、风险等级和原因。
+        Returns:
+            新添加的审计日志记录的ID。
+        Raises:
+            DBError: 数据库未初始化或查询失败。
+        """
         import uuid
         import time
 
@@ -77,6 +91,21 @@ class AuditLogMixin:
         source: str | None = None,
         risk_level: RiskLevel | None = None,
     ) -> int:
+        """
+        获取符合条件的审计日志记录总数。
+
+        Args:
+            start_time: 起始时间戳，可选。
+            end_time: 结束时间戳，可选。
+            source: 消息来源，可选。
+            risk_level: 风险等级，可选。
+
+        Returns:
+            符合条件的审计日志记录总数。
+
+        Raises:
+            DBError: 数据库未初始化或查询失败。
+        """
         if not self.db:
             raise DBError("数据库未初始化或连接已关闭")
         query = "SELECT COUNT(*) FROM audit_logs WHERE 1=1"
@@ -109,6 +138,23 @@ class AuditLogMixin:
         limit: int = 100,
         offset: int = 0,
     ) -> list[AuditLogEntry]:
+        """
+        获取符合条件的审计日志记录列表。
+
+        Args:
+            start_time: 起始时间戳，可选。
+            end_time: 结束时间戳，可选。
+            source: 消息来源，可选。
+            risk_level: 风险等级，可选。
+            limit: 返回的最大记录数，默认为100。
+            offset: 偏移量，用于分页，默认为0。
+
+        Returns:
+            符合条件的审计日志记录列表。
+
+        Raises:
+            DBError: 数据库未初始化或查询失败。
+        """
         if not self.db:
             raise DBError("数据库未初始化或连接已关闭")
         query = "SELECT id, content, source, message_timestamp, risk_level, reason, updated_at FROM audit_logs WHERE 1=1"
@@ -144,6 +190,24 @@ class AuditLogMixin:
         limit: int = 100,
         offset: int = 0,
     ) -> list[AuditLogEntry]:
+        """
+        搜索符合条件的审计日志记录列表。
+
+        Args:
+            search_term: 搜索关键词，将在内容和原因字段中进行搜索。
+            start_time: 起始时间戳，可选。
+            end_time: 结束时间戳，可选。
+            source: 消息来源，可选。
+            risk_level: 风险等级，可选。
+            limit: 返回的最大记录数，默认为100。
+            offset: 偏移量，用于分页，默认为0。
+
+        Returns:
+            符合条件的审计日志记录列表。
+
+        Raises:
+            DBError: 数据库未初始化或查询失败。
+        """
         if not self.db:
             raise DBError("数据库未初始化或连接已关闭")
         query = "SELECT id, content, source, message_timestamp, risk_level, reason, updated_at FROM audit_logs WHERE (content LIKE ? OR reason LIKE ?)"
@@ -171,6 +235,17 @@ class AuditLogMixin:
             raise DBError(f"搜索审计日志失败：{e}")
 
     async def delete_audit_log(self, log_id: str) -> bool:
+        """
+        删除指定ID的审计日志记录。
+
+        Args:
+            log_id: 要删除的审计日志记录的ID。
+
+        Returns:
+            如果删除成功返回True，否则返回False。
+        Raises:
+            DBError: 数据库未初始化或删除失败。
+        """
         if not self.db:
             raise DBError("数据库未初始化或连接已关闭")
         try:
@@ -184,6 +259,15 @@ class AuditLogMixin:
             raise DBError(f"删除审计日志失败：{e}")
 
     def _parse_audit_log(self, row) -> AuditLogEntry:
+        """
+        解析数据库查询结果行，将其转换为AuditLogEntry对象。
+
+        Args:
+            row: 数据库查询结果的一行数据。
+
+        Returns:
+            解析后的AuditLogEntry对象。
+        """
         (
             log_id,
             content,
