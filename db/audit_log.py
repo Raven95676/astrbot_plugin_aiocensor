@@ -1,0 +1,206 @@
+import json
+import logging
+from typing import Any
+import aiosqlite
+from common.types import ( # type: ignore
+    RiskLevel,
+    AuditLogEntry,
+    CensorResult,
+    Message,
+    DBError,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class AuditLogMixin:
+    """审计日志相关功能"""
+    db: aiosqlite.Connection | None
+
+    async def _create_tables(self) -> None:
+        if not self.db:
+            raise DBError("数据库未初始化")
+        try:
+            await self.db.execute("""
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id TEXT PRIMARY KEY,
+                content TEXT NOT NULL,
+                source TEXT NOT NULL,
+                message_timestamp INTEGER NOT NULL,
+                risk_level INTEGER NOT NULL,
+                reason TEXT NOT NULL,
+                updated_at INTEGER NOT NULL
+            )""")
+            await self.db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_logs_time ON audit_logs(message_timestamp)"
+            )
+            await self.db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_logs_risk ON audit_logs(risk_level)"
+            )
+            await self.db.commit()
+        except aiosqlite.Error as e:
+            await self.db.rollback()
+            raise DBError(f"创建审计日志表失败: {e}")
+
+    async def add_audit_log(self, result: CensorResult) -> str:
+        import uuid
+        import time
+
+        if not self.db:
+            raise DBError("数据库未初始化或连接已关闭")
+        log_id = str(uuid.uuid4())
+        reason_str = json.dumps(list(result.reason)) if result.reason else ""
+        try:
+            async with self.db.cursor() as cursor:
+                await cursor.execute(
+                    "INSERT INTO audit_logs (id, content, source, message_timestamp, risk_level, reason, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        log_id,
+                        result.message.content,
+                        result.message.source,
+                        result.message.timestamp,
+                        result.risk_level.value,
+                        reason_str,
+                        int(time.time()),
+                    ),
+                )
+                await self.db.commit()
+                return log_id
+        except aiosqlite.Error as e:
+            await self.db.rollback()
+            raise DBError(f"添加审计日志失败: {e}")
+
+    async def get_audit_logs_count(
+        self,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        source: str | None = None,
+        risk_level: RiskLevel | None = None,
+    ) -> int:
+        if not self.db:
+            raise DBError("数据库未初始化或连接已关闭")
+        query = "SELECT COUNT(*) FROM audit_logs WHERE 1=1"
+        params: list[Any] = []
+        if start_time:
+            query += " AND message_timestamp >= ?"
+            params.append(start_time)
+        if end_time:
+            query += " AND message_timestamp <= ?"
+            params.append(end_time)
+        if source:
+            query += " AND source = ?"
+            params.append(source)
+        if risk_level:
+            query += " AND risk_level = ?"
+            params.append(risk_level.value)
+        try:
+            async with self.db.execute(query, params) as cursor:
+                result = await cursor.fetchone()
+            return result[0] if result else 0
+        except aiosqlite.Error as e:
+            raise DBError(f"获取审计日志总数失败：{e}")
+
+    async def get_audit_logs(
+        self,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        source: str | None = None,
+        risk_level: RiskLevel | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[AuditLogEntry]:
+        if not self.db:
+            raise DBError("数据库未初始化或连接已关闭")
+        query = "SELECT id, content, source, message_timestamp, risk_level, reason, updated_at FROM audit_logs WHERE 1=1"
+        params: list[Any] = []
+        if start_time:
+            query += " AND message_timestamp >= ?"
+            params.append(start_time)
+        if end_time:
+            query += " AND message_timestamp <= ?"
+            params.append(end_time)
+        if source:
+            query += " AND source = ?"
+            params.append(source)
+        if risk_level:
+            query += " AND risk_level = ?"
+            params.append(risk_level.value)
+        query += " ORDER BY message_timestamp DESC, id DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+        try:
+            async with self.db.execute(query, params) as cursor:
+                rows = await cursor.fetchall()
+            return [self._parse_audit_log(row) for row in rows]
+        except aiosqlite.Error as e:
+            raise DBError(f"获取审计日志失败：{e}")
+
+    async def search_audit_logs(
+        self,
+        search_term: str,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        source: str | None = None,
+        risk_level: RiskLevel | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[AuditLogEntry]:
+        if not self.db:
+            raise DBError("数据库未初始化或连接已关闭")
+        query = "SELECT id, content, source, message_timestamp, risk_level, reason, updated_at FROM audit_logs WHERE (content LIKE ? OR reason LIKE ?)"
+        search_pattern = f"%{search_term}%"
+        params: list[Any] = [search_pattern, search_pattern]
+        if start_time:
+            query += " AND message_timestamp >= ?"
+            params.append(start_time)
+        if end_time:
+            query += " AND message_timestamp <= ?"
+            params.append(end_time)
+        if source:
+            query += " AND source = ?"
+            params.append(source)
+        if risk_level:
+            query += " AND risk_level = ?"
+            params.append(risk_level.value)
+        query += " ORDER BY message_timestamp DESC, id DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+        try:
+            async with self.db.execute(query, params) as cursor:
+                rows = await cursor.fetchall()
+            return [self._parse_audit_log(row) for row in rows]
+        except aiosqlite.Error as e:
+            raise DBError(f"搜索审计日志失败：{e}")
+
+    async def delete_audit_log(self, log_id: str) -> bool:
+        if not self.db:
+            raise DBError("数据库未初始化或连接已关闭")
+        try:
+            async with self.db.cursor() as cursor:
+                await cursor.execute("DELETE FROM audit_logs WHERE id = ?", (log_id,))
+                deleted = cursor.rowcount > 0
+                await self.db.commit()
+                return deleted
+        except aiosqlite.Error as e:
+            await self.db.rollback()
+            raise DBError(f"删除审计日志失败：{e}")
+
+    def _parse_audit_log(self, row) -> AuditLogEntry:
+        (
+            log_id,
+            content,
+            source_str,
+            message_ts,
+            risk_level_value,
+            reason_str,
+            updated_at,
+        ) = row
+        try:
+            reason_set = set(json.loads(reason_str)) if reason_str else set()
+        except json.JSONDecodeError as e:
+            logger.warning(f"解析审计日志原因字段失败，ID={log_id}: {e}")
+            reason_set = set()
+        risk_level_enum = RiskLevel(risk_level_value)
+        message = Message(content=content, source=source_str, timestamp=message_ts)
+        censor_result = CensorResult(
+            message=message, risk_level=risk_level_enum, reason=reason_set
+        )
+        return AuditLogEntry(id=log_id, result=censor_result, updated_at=updated_at)
