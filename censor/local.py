@@ -2,9 +2,8 @@ import asyncio
 import logging
 from typing import Any
 
-from ..common.types import RiskLevel # type: ignore
-from ..common.interfaces import CensorBase # type: ignore
-
+from ..common.types import RiskLevel  # type: ignore
+from ..common.interfaces import CensorBase  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -12,14 +11,15 @@ logger = logging.getLogger(__name__)
 class LocalCensor(CensorBase):
     def __init__(
         self,
-        keywords: set[str] | None = None,
+        config: dict[str, Any],
     ):
         """
         初始化本地审查器。
 
         Args:
-            keywords (set[str]): 敏感词集合。
+            config (dict[str, Any]): 配置字典，包含keywords等参数
         """
+        keywords = config.get("keywords", set())
         if keywords:
             self.keywords = set(keywords)
             self.dfa = self._build_dfa(self.keywords)
@@ -28,7 +28,16 @@ class LocalCensor(CensorBase):
             self.dfa = {}
         self.lock = asyncio.Lock()
 
+    async def __aenter__(self):
+        """异步上下文管理器的进入方法"""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """异步上下文管理器的退出方法"""
+        await self.close()
+
     async def close(self):
+        """关闭审查器"""
         pass
 
     @staticmethod

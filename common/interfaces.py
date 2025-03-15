@@ -1,9 +1,10 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
+from contextlib import AbstractAsyncContextManager
 
 from .types import RiskLevel
 
 
-class CensorBase(ABC):
+class CensorBase(AbstractAsyncContextManager):
     @abstractmethod
     async def detect_text(self, text: str) -> tuple[RiskLevel, set[str]]:
         """

@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import logging
+from typing import Any
 
 import aiohttp
 from ..common.interfaces import CensorBase # type: ignore
@@ -11,10 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 class LLMCensor(CensorBase):
-    def __init__(self, model: str, base_url: str, api_key: str) -> None:
-        self.model = model
-        self.base_url = base_url
-        self.api_key = api_key
+    def __init__(self, config: dict[str, Any]) -> None:
+        self.model = config.get("model")
+        self.base_url = config.get("base_url")
+        self.api_key = config.get("api_key")
         self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15))
         self.semaphore = asyncio.Semaphore(80)
 
