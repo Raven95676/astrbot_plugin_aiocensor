@@ -1,5 +1,5 @@
 import aiosqlite
-from common.types import DBError # type: ignore
+from ..common.types import DBError # type: ignore
 
 
 class BaseDBMixin:

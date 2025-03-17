@@ -1,13 +1,16 @@
 import json
 import logging
+import time
+import uuid
 from typing import Any
+
 import aiosqlite
-from common.types import ( # type: ignore
-    RiskLevel,
+from ..common.types import (  # type: ignore
     AuditLogEntry,
     CensorResult,
-    Message,
     DBError,
+    Message,
+    RiskLevel,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,8 +60,6 @@ class AuditLogMixin:
         Raises:
             DBError: 数据库未初始化或查询失败。
         """
-        import uuid
-        import time
 
         if not self.db:
             raise DBError("数据库未初始化或连接已关闭")

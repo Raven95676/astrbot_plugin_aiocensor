@@ -1,7 +1,7 @@
 import uuid
 import time
 import aiosqlite
-from common.types import BlacklistEntry, DBError # type: ignore
+from ..common.types import BlacklistEntry, DBError # type: ignore
 
 
 class BlacklistMixin:
