@@ -142,7 +142,7 @@ class AliyunCensor(CensorBase):
             chunks.append(content[i : i + 600])
         return chunks
 
-    @censor_retry(max_retries=3, error_return=(RiskLevel.Review, {"请求失败"}))
+    @censor_retry(max_retries=3)
     async def _check_single_text(self, content: str) -> tuple[RiskLevel, set[str]]:
         """
         对单段文本进行内容审核。
@@ -235,7 +235,7 @@ class AliyunCensor(CensorBase):
             raise CensorError(f"内容审核过程中发生异常: {e!s}")
 
     @censor_retry(max_retries=3)
-    async def detect_image(self, image) -> tuple[RiskLevel, set[str]]:
+    async def detect_image(self, image) -> tuple[RiskLevel, set[str]]: # type: ignore
         """
         对图片进行内容审核。
 

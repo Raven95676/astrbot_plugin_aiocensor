@@ -289,7 +289,7 @@ class TencentCensor(CensorBase):
             raise CensorError(f"内容审核过程中发生异常: {e!s}")
 
     @censor_retry(max_retries=3)
-    async def detect_image(self, image: str) -> tuple[RiskLevel, set[str]]:
+    async def detect_image(self, image: str) -> tuple[RiskLevel, set[str]]: # type: ignore
         """
         对图片进行内容审核。
 

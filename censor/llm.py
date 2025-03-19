@@ -27,7 +27,7 @@ class LLMCensor(CensorBase):
         await self.session.close()
 
     @censor_retry(max_retries=3)
-    async def detect_text(self, text: str) -> tuple[RiskLevel, set[str]]:
+    async def detect_text(self, text: str) -> tuple[RiskLevel, set[str]]: # type: ignore
         """
         检测文本内容是否合规。
 
@@ -112,7 +112,7 @@ Output:
                     return RiskLevel.Review, reason
 
     @censor_retry(max_retries=3)
-    async def detect_image(self, image: str) -> tuple[RiskLevel, set[str]]:
+    async def detect_image(self, image: str) -> tuple[RiskLevel, set[str]]: # type: ignore
         """
         检测图片内容是否合规。
 
