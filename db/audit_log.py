@@ -1,10 +1,10 @@
 import json
-import logging
 import time
 import uuid
 from typing import Any
 
 import aiosqlite
+
 from ..common.types import (  # type: ignore
     AuditLogEntry,
     CensorResult,
@@ -13,11 +13,10 @@ from ..common.types import (  # type: ignore
     RiskLevel,
 )
 
-logger = logging.getLogger(__name__)
-
 
 class AuditLogMixin:
     """审计日志相关功能"""
+
     db: aiosqlite.Connection | None
 
     async def _create_tables(self) -> None:
@@ -280,8 +279,7 @@ class AuditLogMixin:
         ) = row
         try:
             reason_set = set(json.loads(reason_str)) if reason_str else set()
-        except json.JSONDecodeError as e:
-            logger.warning(f"解析审计日志原因字段失败，ID={log_id}: {e}")
+        except json.JSONDecodeError:
             reason_set = set()
         risk_level_enum = RiskLevel(risk_level_value)
         message = Message(content=content, source=source_str, timestamp=message_ts)

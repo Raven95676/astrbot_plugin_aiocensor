@@ -1,8 +1,8 @@
-from .base import BaseDBMixin
 from .audit_log import AuditLogMixin
-from .sensitive_word import SensitiveWordMixin
+from .base import BaseDBMixin
 from .blacklist import BlacklistMixin
 from .manager import DBManager
+from .sensitive_word import SensitiveWordMixin
 
 __version__ = "0.1.0"
 __author__ = "Raven95676"

@@ -1,14 +1,16 @@
-import uuid
 import time
-import aiosqlite
-from ..common.types import SensitiveWordEntry, DBError # type: ignore
+import uuid
 
+import aiosqlite
+
+from ..common.types import DBError, SensitiveWordEntry  # type: ignore
 
 
 class SensitiveWordMixin:
     """敏感词相关功能"""
 
     db: aiosqlite.Connection | None
+
     async def _create_tables(self) -> None:
         """
         创建敏感词表。
