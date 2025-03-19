@@ -3,18 +3,16 @@ import base64
 import hashlib
 import hmac
 import json
-import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import quote_plus
 
 import aiohttp
+
 from ..common.interfaces import CensorBase  # type: ignore
 from ..common.types import CensorError, RiskLevel  # type: ignore
 from ..common.utils import censor_retry  # type: ignore
-
-logger = logging.getLogger(__name__)
 
 
 class AliyunAuth:
@@ -251,7 +249,6 @@ class AliyunCensor(CensorBase):
         reason_words_set: set[str] = set()
 
         if image.startswith("base64://"):
-            logger.warning("接口暂不支持base64图片")
             return RiskLevel.Fallback, {"接口暂不支持base64图片"}
 
         if not image.startswith("http"):
