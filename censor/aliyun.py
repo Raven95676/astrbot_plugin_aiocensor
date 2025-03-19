@@ -234,7 +234,7 @@ class AliyunCensor(CensorBase):
         except Exception as e:
             raise CensorError(f"内容审核过程中发生异常: {e!s}")
 
-    @censor_retry(max_retries=3, error_return=(RiskLevel.Review, {"请求失败"}))
+    @censor_retry(max_retries=3)
     async def detect_image(self, image) -> tuple[RiskLevel, set[str]]:
         """
         对图片进行内容审核。

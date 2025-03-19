@@ -1,20 +1,17 @@
 import asyncio
 import functools
-import logging
 from typing import Any, Awaitable, Callable, TypeVar
 
 import aiohttp
 
-from .types import CensorError, RiskLevel
+from .types import CensorError
 
 T = TypeVar("T")
-logger = logging.getLogger(__name__)
 
 
 def censor_retry(
     max_retries: int = 3,
     base_delay: float = 0.5,
-    error_return: tuple[RiskLevel, set[str]] = (RiskLevel.Review, {"请求失败"}),
 ):
     """
     审核重试装饰器。
@@ -24,8 +21,6 @@ def censor_retry(
     Args:
         max_retries (int): 最大重试次数，默认为3。
         base_delay (float): 初始重试延迟时间（秒），默认为0.5秒。
-        error_return (tuple[RiskLevel, set[str]]): 当发生未知错误时，返回的错误信息。
-            默认为 (RiskLevel.Review, {"请求失败"})。
 
     Returns:
         Callable[..., Awaitable[T]]: 包装后的异步函数。
@@ -45,8 +40,6 @@ def censor_retry(
                         await asyncio.sleep(base_delay * (2**attempt))
                         continue
                 except Exception as e:
-                    if isinstance(error_return, tuple) and len(error_return) == 2:
-                        raise CensorError(f"发生未知错误: {e!s}")
                     raise CensorError(f"发生未知错误: {e!s}")
 
             raise CensorError(f"请求失败，已达到最大重试次数 ({max_retries})")
