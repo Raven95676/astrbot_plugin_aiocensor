@@ -127,11 +127,13 @@ class CensorFlow(AbstractAsyncContextManager):
                         if not future.done():
                             future.set_result(result)
 
-                        if callback:
+                        try:
                             if asyncio.iscoroutinefunction(callback):
                                 await callback(result)
                             else:
                                 callback(result)
+                        except Exception as e:
+                            logger.error(f"回调错误在 {name}: {e}", exc_info=True)
                     except Exception as e:
                         if not future.done():
                             future.set_exception(e)
