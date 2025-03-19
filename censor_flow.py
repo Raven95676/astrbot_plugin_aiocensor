@@ -321,6 +321,7 @@ class CensorFlow(AbstractAsyncContextManager):
         """获取当前的用户名审核器"""
         return self.username_censor
 
+    @property
     def is_running(self) -> bool:
         """返回当前服务是否运行中"""
         return self._is_running

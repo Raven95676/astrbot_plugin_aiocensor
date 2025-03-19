@@ -8,7 +8,6 @@ __author__ = "Raven95676"
 __license__ = "AGPL-3.0"
 __copyright__ = "Copyright (c) 2025 Raven95676"
 __all__ = [
-    "CensorBase",
     "AliyunCensor",
     "TencentCensor",
     "LocalCensor",
