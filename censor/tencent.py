@@ -3,17 +3,15 @@ import base64
 import hashlib
 import hmac
 import json
-import logging
 import time
 from datetime import datetime, timezone
 from typing import Any
 
 import aiohttp
-from ..common.interfaces import CensorBase # type: ignore
-from ..common.types import CensorError, RiskLevel # type: ignore
-from ..common.utils import censor_retry # type: ignore
 
-logger = logging.getLogger(__name__)
+from ..common.interfaces import CensorBase  # type: ignore
+from ..common.types import CensorError, RiskLevel  # type: ignore
+from ..common.utils import censor_retry  # type: ignore
 
 
 class TencentAuth:

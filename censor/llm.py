@@ -1,14 +1,12 @@
 import asyncio
 import base64
-import logging
 from typing import Any
 
 import aiohttp
-from ..common.interfaces import CensorBase # type: ignore
-from ..common.types import CensorError, RiskLevel # type: ignore
-from ..common.utils import censor_retry # type: ignore
 
-logger = logging.getLogger(__name__)
+from ..common.interfaces import CensorBase  # type: ignore
+from ..common.types import CensorError, RiskLevel  # type: ignore
+from ..common.utils import censor_retry  # type: ignore
 
 
 class LLMCensor(CensorBase):
@@ -127,6 +125,7 @@ Output:
         Raises:
             CensorError: 任何在检测过程中可能抛出的异常。
         """
+
         def get_image_format(img_b64: str):
             data = base64.b64decode(img_b64)
             if data.startswith(b"\x89\x50\x4e\x47\x0d\x0a\x1a\x0a"):
