@@ -127,21 +127,24 @@ class CensorFlow(AbstractAsyncContextManager):
                         if not future.done():
                             future.set_result(result)
 
-                        try:
-                            if asyncio.iscoroutinefunction(callback):
-                                await callback(result)
-                            else:
-                                callback(result)
-                        except Exception as e:
-                            logger.error(f"回调错误在 {name}: {e}", exc_info=True)
+                        if callback is not None:
+                            try:
+                                if asyncio.iscoroutinefunction(callback):
+                                    await callback(result)
+                                else:
+                                    callback(result)
+                            except Exception as e:
+                                logger.error(f"回调错误在 {name}: {e!s}", exc_info=True)
+                                if not future.done():
+                                    future.set_exception(e)
                     except Exception as e:
                         if not future.done():
                             future.set_exception(e)
-                        logger.error(f"{name} 处理时发生错误: {e}")
+                        logger.error(f"{name} 处理时发生错误: {e!s}")
                     finally:
                         queue.task_done()
                 except Exception as e:
-                    logger.error(f"{name} 处理时发生错误: {e}")
+                    logger.error(f"{name} 处理时发生错误: {e!s}")
                     await asyncio.sleep(0.01)
         except CancelledError:
             logger.debug(f"{name} 已取消")
