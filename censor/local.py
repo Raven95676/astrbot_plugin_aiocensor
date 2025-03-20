@@ -10,6 +10,17 @@ from ..common.types import CensorError, RiskLevel  # type: ignore
 
 
 class LocalCensor(CensorBase):
+    __slots__ = (
+        "_config",
+        "_patterns",
+        "_matcher",
+        "_is_built",
+        "_max_workers",
+        "_executor",
+        "_shutdown",
+        "_lock",
+    )
+
     def __init__(self, config: dict[str, Any]) -> None:
         self._config = config
         self._patterns = config.get("patterns", set())

@@ -12,6 +12,20 @@ logger = logging.getLogger(__name__)
 
 
 class CensorFlow(AbstractAsyncContextManager):
+    __slots__ = (
+        "_text_censor",
+        "_image_censor",
+        "_username_censor",
+        "_num_workers",
+        "_text_queue",
+        "_image_queue",
+        "_username_queue",
+        "_tasks",
+        "_shutdown",
+        "_all_tasks_done",
+        "_is_running",
+    )
+
     def __init__(
         self,
         text_censor: CensorBase,

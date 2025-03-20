@@ -10,12 +10,14 @@ from ..common.utils import censor_retry  # type: ignore
 
 
 class LLMCensor(CensorBase):
+    __slots__ = ("_model", "_base_url", "_api_key", "_session", "_semaphore")
+
     def __init__(self, config: dict[str, Any]) -> None:
-        self.model = config.get("model")
-        self.base_url = config.get("base_url")
-        self.api_key = config.get("api_key")
-        self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15))
-        self.semaphore = asyncio.Semaphore(80)
+        self._model = config.get("model")
+        self._base_url = config.get("base_url")
+        self._api_key = config.get("api_key")
+        self._session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15))
+        self._semaphore = asyncio.Semaphore(80)
 
     async def __aenter__(self) -> "LLMCensor":
         return self
@@ -24,10 +26,10 @@ class LLMCensor(CensorBase):
         await self.close()
 
     async def close(self):
-        await self.session.close()
+        await self._session.close()
 
     @censor_retry(max_retries=3)
-    async def detect_text(self, text: str) -> tuple[RiskLevel, set[str]]: # type: ignore
+    async def detect_text(self, text: str) -> tuple[RiskLevel, set[str]]:  # type: ignore
         """
         检测文本内容是否合规。
 
@@ -81,19 +83,19 @@ Output:
             {"role": "user", "content": usr_prompt},
         ]
         payload = {
-            "model": self.model,
+            "model": self._model,
             "messages": messages,
             "stream": False,
             "temperature": 0,
         }
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
 
-        async with self.semaphore:
-            async with self.session.post(
-                f"{self.base_url}/chat/completions",
+        async with self._semaphore:
+            async with self._session.post(
+                f"{self._base_url}/chat/completions",
                 headers=headers,
                 json=payload,
             ) as response:
@@ -112,7 +114,7 @@ Output:
                     return RiskLevel.Review, reason
 
     @censor_retry(max_retries=3)
-    async def detect_image(self, image: str) -> tuple[RiskLevel, set[str]]: # type: ignore
+    async def detect_image(self, image: str) -> tuple[RiskLevel, set[str]]:  # type: ignore
         """
         检测图片内容是否合规。
 
@@ -220,18 +222,18 @@ Please perform the audit in strict accordance with the above rules and make sure
         else:
             raise CensorError("预期外的输入")
         payload = {
-            "model": self.model,
+            "model": self._model,
             "messages": messages,
             "stream": False,
             "temperature": 0,
         }
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
-        async with self.semaphore:
-            async with self.session.post(
-                f"{self.base_url}/chat/completions",
+        async with self._semaphore:
+            async with self._session.post(
+                f"{self._base_url}/chat/completions",
                 headers=headers,
                 json=payload,
             ) as response:

@@ -17,9 +17,11 @@ from ..common.utils import censor_retry  # type: ignore
 class TencentAuth:
     """腾讯云内容安全API鉴权"""
 
+    __slots__ = ("_secret_id", "_secret_key")
+
     def __init__(self, secret_id: str, secret_key: str):
-        self.secret_id = secret_id
-        self.secret_key = secret_key
+        self._secret_id = secret_id
+        self._secret_key = secret_key
 
     def _generate_signature(
         self,
@@ -83,7 +85,7 @@ class TencentAuth:
         )
 
         secret_date = hmac.new(
-            f"TC3{self.secret_key}".encode("utf-8"),
+            f"TC3{self._secret_key}".encode("utf-8"),
             date.encode("utf-8"),
             hashlib.sha256,
         ).digest()
@@ -102,7 +104,7 @@ class TencentAuth:
 
         authorization = (
             "TC3-HMAC-SHA256 "
-            + f"Credential={self.secret_id}/{credential_scope}, "
+            + f"Credential={self._secret_id}/{credential_scope}, "
             + f"SignedHeaders={signed_headers}, "
             + f"Signature={signature}"
         )
@@ -160,12 +162,14 @@ class TencentAuth:
 class TencentCensor(CensorBase):
     """腾讯云内容审核"""
 
+    __slots__ = ("_text_url", "_image_url", "_auth", "_session", "_semaphore")
+
     def __init__(self, config: dict[str, Any]) -> None:
-        self.text_url = "https://tms.tencentcloudapi.com"
-        self.image_url = "https://ims.tencentcloudapi.com"
-        self.auth = TencentAuth(config["secret_id"], config["secret_key"])
-        self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15))
-        self.semaphore = asyncio.Semaphore(80)
+        self._text_url = "https://tms.tencentcloudapi.com"
+        self._image_url = "https://ims.tencentcloudapi.com"
+        self._auth = TencentAuth(config["secret_id"], config["secret_key"])
+        self._session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15))
+        self._semaphore = asyncio.Semaphore(80)
 
     async def __aenter__(self) -> "TencentCensor":
         return self
@@ -174,7 +178,7 @@ class TencentCensor(CensorBase):
         await self.close()
 
     async def close(self):
-        await self.session.close()
+        await self._session.close()
 
     @staticmethod
     def _split_text(content: str) -> list[str]:
@@ -218,15 +222,15 @@ class TencentCensor(CensorBase):
             {"Content": str(base64.b64encode(text.encode("utf-8")).decode("utf-8"))}
         )
 
-        headers = self.auth.prepare_request_headers(
+        headers = self._auth.prepare_request_headers(
             service="tms",
             host="tms.tencentcloudapi.com",
             action="TextModeration",
             payload=payload,
         )
-        async with self.semaphore:
-            async with self.session.post(
-                self.text_url, headers=headers, data=payload
+        async with self._semaphore:
+            async with self._session.post(
+                self._text_url, headers=headers, data=payload
             ) as response:
                 response.raise_for_status()
                 result = await response.json()
@@ -289,7 +293,7 @@ class TencentCensor(CensorBase):
             raise CensorError(f"内容审核过程中发生异常: {e!s}")
 
     @censor_retry(max_retries=3)
-    async def detect_image(self, image: str) -> tuple[RiskLevel, set[str]]: # type: ignore
+    async def detect_image(self, image: str) -> tuple[RiskLevel, set[str]]:  # type: ignore
         """
         对图片进行内容审核。
 
@@ -311,15 +315,15 @@ class TencentCensor(CensorBase):
         else:
             raise CensorError("预期外的输入")
 
-        headers = self.auth.prepare_request_headers(
+        headers = self._auth.prepare_request_headers(
             service="ims",
             host="ims.tencentcloudapi.com",
             action="ImageModeration",
             payload=payload,
         )
-        async with self.semaphore:
-            async with self.session.post(
-                self.image_url, headers=headers, data=payload
+        async with self._semaphore:
+            async with self._session.post(
+                self._image_url, headers=headers, data=payload
             ) as response:
                 response.raise_for_status()
                 result = await response.json()

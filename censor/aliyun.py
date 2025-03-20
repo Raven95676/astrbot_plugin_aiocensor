@@ -24,9 +24,11 @@ class AliyunAuth:
         key_secret (str): Access Key Secret
     """
 
+    __slots__ = ("_key_id", "_key_secret")
+
     def __init__(self, key_id: str, key_secret: str):
-        self.key_id = key_id
-        self.key_secret = key_secret
+        self._key_id = key_id
+        self._key_secret = key_secret
 
     @staticmethod
     def _encode(s: Any) -> str:
@@ -62,7 +64,7 @@ class AliyunAuth:
             f"{self._encode(k)}={self._encode(v)}" for k, v in sorted_params
         )
         string_to_sign = f"{method}&{self._encode('/')}&{self._encode(canonical_query)}"
-        key = f"{self.key_secret}&"
+        key = f"{self._key_secret}&"
         signature = base64.b64encode(
             hmac.new(
                 key.encode("utf-8"),
@@ -89,7 +91,7 @@ class AliyunAuth:
         params: dict[str, str] = {
             "Format": "JSON",
             "Version": "2022-03-02",
-            "AccessKeyId": self.key_id,
+            "AccessKeyId": self._key_id,
             "SignatureMethod": "HMAC-SHA1",
             "Timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "SignatureVersion": "1.0",
@@ -106,11 +108,13 @@ class AliyunAuth:
 class AliyunCensor(CensorBase):
     """阿里云内容审核"""
 
+    __slots__ = ("_url", "_auth", "_session", "_semaphore")
+
     def __init__(self, config: dict[str, Any]) -> None:
-        self.url: str = "https://green-cip.cn-shanghai.aliyuncs.com"
-        self.auth = AliyunAuth(config["key_id"], config["key_secret"])
-        self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15))
-        self.semaphore = asyncio.Semaphore(80)
+        self._url: str = "https://green-cip.cn-shanghai.aliyuncs.com"
+        self._auth = AliyunAuth(config["key_id"], config["key_secret"])
+        self._session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15))
+        self._semaphore = asyncio.Semaphore(80)
 
     async def __aenter__(self) -> "AliyunCensor":
         return self
@@ -119,7 +123,7 @@ class AliyunCensor(CensorBase):
         await self.close()
 
     async def close(self):
-        await self.session.close()
+        await self._session.close()
 
     @staticmethod
     def _split_text(content: str) -> list[str]:
@@ -155,13 +159,13 @@ class AliyunCensor(CensorBase):
             CensorError: 任何在检测过程中可能抛出的异常。
         """
         risk_words_set: set[str] = set()
-        params = self.auth.prepare_request_params(
+        params = self._auth.prepare_request_params(
             action="TextModerationPlus",
             service="chat_detection_pro",
             service_params={"content": content},
         )
-        async with self.semaphore:
-            async with self.session.post(self.url, params=params) as response:
+        async with self._semaphore:
+            async with self._session.post(self._url, params=params) as response:
                 response.raise_for_status()
 
                 result = await response.json()
@@ -233,7 +237,7 @@ class AliyunCensor(CensorBase):
             raise CensorError(f"内容审核过程中发生异常: {e!s}")
 
     @censor_retry(max_retries=3)
-    async def detect_image(self, image) -> tuple[RiskLevel, set[str]]: # type: ignore
+    async def detect_image(self, image) -> tuple[RiskLevel, set[str]]:  # type: ignore
         """
         对图片进行内容审核。
 
@@ -254,7 +258,7 @@ class AliyunCensor(CensorBase):
         if not image.startswith("http"):
             raise CensorError("预期外的输入")
 
-        params = self.auth.prepare_request_params(
+        params = self._auth.prepare_request_params(
             action="ImageModeration",
             service="baselineCheck",
             service_params={
@@ -262,8 +266,8 @@ class AliyunCensor(CensorBase):
                 "infoType": "customImage,textInImage",
             },
         )
-        async with self.semaphore:
-            async with self.session.post(self.url, params=params) as response:
+        async with self._semaphore:
+            async with self._session.post(self._url, params=params) as response:
                 response.raise_for_status()
 
                 result = await response.json()
