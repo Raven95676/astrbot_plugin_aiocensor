@@ -53,12 +53,10 @@ class AuditLogEntry:
     Args:
         id (str): 审计日志的唯一标识符。
         result (CensorResult): 审查结果。
-        updated_at (int): 记录更新时间戳。
     """
 
     id: str
     result: CensorResult
-    updated_at: int
 
 
 @dataclass
@@ -69,7 +67,6 @@ class SensitiveWordEntry:
     Args:
         id (str): 敏感词条目的唯一标识符。
         word (str): 敏感词。
-        updated_at (int): 记录更新时间戳。
     """
 
     id: str

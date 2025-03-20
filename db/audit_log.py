@@ -1,5 +1,4 @@
 import json
-import time
 import uuid
 from typing import Any
 
@@ -34,8 +33,7 @@ class AuditLogMixin:
                 source TEXT NOT NULL,
                 message_timestamp INTEGER NOT NULL,
                 risk_level INTEGER NOT NULL,
-                reason TEXT NOT NULL,
-                updated_at INTEGER NOT NULL
+                reason TEXT NOT NULL
             )""")
             await self.db.execute(
                 "CREATE INDEX IF NOT EXISTS idx_logs_time ON audit_logs(message_timestamp)"
@@ -59,7 +57,6 @@ class AuditLogMixin:
         Raises:
             DBError: 数据库未初始化或查询失败。
         """
-
         if not self.db:
             raise DBError("数据库未初始化或连接已关闭")
         log_id = str(uuid.uuid4())
@@ -67,7 +64,7 @@ class AuditLogMixin:
         try:
             async with self.db.cursor() as cursor:
                 await cursor.execute(
-                    "INSERT INTO audit_logs (id, content, source, message_timestamp, risk_level, reason, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    "INSERT INTO audit_logs (id, content, source, message_timestamp, risk_level, reason) VALUES (?, ?, ?, ?, ?, ?)",
                     (
                         log_id,
                         result.message.content,
@@ -75,7 +72,6 @@ class AuditLogMixin:
                         result.message.timestamp,
                         result.risk_level.value,
                         reason_str,
-                        int(time.time()),
                     ),
                 )
                 await self.db.commit()
@@ -157,7 +153,7 @@ class AuditLogMixin:
         """
         if not self.db:
             raise DBError("数据库未初始化或连接已关闭")
-        query = "SELECT id, content, source, message_timestamp, risk_level, reason, updated_at FROM audit_logs WHERE 1=1"
+        query = "SELECT id, content, source, message_timestamp, risk_level, reason FROM audit_logs WHERE 1=1"
         params: list[Any] = []
         if start_time:
             query += " AND message_timestamp >= ?"
@@ -210,7 +206,7 @@ class AuditLogMixin:
         """
         if not self.db:
             raise DBError("数据库未初始化或连接已关闭")
-        query = "SELECT id, content, source, message_timestamp, risk_level, reason, updated_at FROM audit_logs WHERE (content LIKE ? OR reason LIKE ?)"
+        query = "SELECT id, content, source, message_timestamp, risk_level, reason FROM audit_logs WHERE (content LIKE ? OR reason LIKE ?)"
         search_pattern = f"%{search_term}%"
         params: list[Any] = [search_pattern, search_pattern]
         if start_time:
@@ -275,7 +271,6 @@ class AuditLogMixin:
             message_ts,
             risk_level_value,
             reason_str,
-            updated_at,
         ) = row
         try:
             reason_set = set(json.loads(reason_str)) if reason_str else set()
@@ -286,4 +281,4 @@ class AuditLogMixin:
         censor_result = CensorResult(
             message=message, risk_level=risk_level_enum, reason=reason_set
         )
-        return AuditLogEntry(id=log_id, result=censor_result, updated_at=updated_at)
+        return AuditLogEntry(id=log_id, result=censor_result)
