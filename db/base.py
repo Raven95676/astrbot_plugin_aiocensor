@@ -48,12 +48,12 @@ class BaseDBMixin:
             if self.db:
                 await self.db.close()
                 self.db = None
-            raise DBError(f"无法连接到数据库: {e}")
+            raise DBError(f"无法连接到数据库: {e!s}")
         except Exception as e:
             if self.db:
                 await self.db.close()
                 self.db = None
-            raise DBError(f"初始化数据库失败: {e}")
+            raise DBError(f"初始化数据库失败: {e!s}")
 
     async def _create_tables(self):
         """
@@ -71,4 +71,4 @@ class BaseDBMixin:
                 await self.db.close()
                 self.db = None
             except aiosqlite.Error as e:
-                raise DBError(f"关闭数据库连接失败：{e}")
+                raise DBError(f"关闭数据库连接失败：{e!s}")

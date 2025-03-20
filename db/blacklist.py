@@ -31,7 +31,7 @@ class BlacklistMixin:
             await self.db.commit()
         except aiosqlite.Error as e:
             await self.db.rollback()
-            raise DBError(f"创建黑名单表失败: {e}")
+            raise DBError(f"创建黑名单表失败: {e!s}")
 
     async def add_blacklist_entry(
         self, identifier: str, reason: str | None = None
@@ -64,7 +64,7 @@ class BlacklistMixin:
                 return result[0] if result else entry_id
         except aiosqlite.Error as e:
             await self.db.rollback()
-            raise DBError(f"添加黑名单条目失败：{e}")
+            raise DBError(f"添加黑名单条目失败：{e!s}")
 
     async def get_blacklist_entries(
         self, limit: int = 100, offset: int = 0
@@ -97,7 +97,7 @@ class BlacklistMixin:
                 for row in rows
             ]
         except aiosqlite.Error as e:
-            raise DBError(f"获取黑名单条目失败：{e}")
+            raise DBError(f"获取黑名单条目失败：{e!s}")
 
     async def get_blacklist_entries_count(self) -> int:
         """
@@ -116,7 +116,7 @@ class BlacklistMixin:
                 result = await cursor.fetchone()
             return result[0] if result else 0
         except aiosqlite.Error as e:
-            raise DBError(f"获取黑名单条目总数失败：{e}")
+            raise DBError(f"获取黑名单条目总数失败：{e!s}")
 
     async def search_blacklist(
         self, search_term: str, limit: int = 100, offset: int = 0
@@ -151,7 +151,7 @@ class BlacklistMixin:
                 for row in rows
             ]
         except aiosqlite.Error as e:
-            raise DBError(f"搜索黑名单条目失败：{e}")
+            raise DBError(f"搜索黑名单条目失败：{e!s}")
 
     async def delete_blacklist_entry(self, entry_id: str) -> bool:
         """
@@ -176,4 +176,4 @@ class BlacklistMixin:
                 return deleted
         except aiosqlite.Error as e:
             await self.db.rollback()
-            raise DBError(f"删除黑名单条目失败：{e}")
+            raise DBError(f"删除黑名单条目失败：{e!s}")

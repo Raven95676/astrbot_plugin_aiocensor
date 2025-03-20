@@ -44,7 +44,7 @@ class AuditLogMixin:
             await self.db.commit()
         except aiosqlite.Error as e:
             await self.db.rollback()
-            raise DBError(f"创建审计日志表失败: {e}")
+            raise DBError(f"创建审计日志表失败: {e!s}")
 
     async def add_audit_log(self, result: CensorResult) -> str:
         """
@@ -78,7 +78,7 @@ class AuditLogMixin:
                 return log_id
         except aiosqlite.Error as e:
             await self.db.rollback()
-            raise DBError(f"添加审计日志失败: {e}")
+            raise DBError(f"添加审计日志失败: {e!s}")
 
     async def get_audit_logs_count(
         self,
@@ -123,7 +123,7 @@ class AuditLogMixin:
                 result = await cursor.fetchone()
             return result[0] if result else 0
         except aiosqlite.Error as e:
-            raise DBError(f"获取审计日志总数失败：{e}")
+            raise DBError(f"获取审计日志总数失败：{e!s}")
 
     async def get_audit_logs(
         self,
@@ -174,7 +174,7 @@ class AuditLogMixin:
                 rows = await cursor.fetchall()
             return [self._parse_audit_log(row) for row in rows]
         except aiosqlite.Error as e:
-            raise DBError(f"获取审计日志失败：{e}")
+            raise DBError(f"获取审计日志失败：{e!s}")
 
     async def search_audit_logs(
         self,
@@ -228,7 +228,7 @@ class AuditLogMixin:
                 rows = await cursor.fetchall()
             return [self._parse_audit_log(row) for row in rows]
         except aiosqlite.Error as e:
-            raise DBError(f"搜索审计日志失败：{e}")
+            raise DBError(f"搜索审计日志失败：{e!s}")
 
     async def delete_audit_log(self, log_id: str) -> bool:
         """
@@ -252,7 +252,7 @@ class AuditLogMixin:
                 return deleted
         except aiosqlite.Error as e:
             await self.db.rollback()
-            raise DBError(f"删除审计日志失败：{e}")
+            raise DBError(f"删除审计日志失败：{e!s}")
 
     def _parse_audit_log(self, row) -> AuditLogEntry:
         """

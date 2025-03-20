@@ -30,7 +30,7 @@ class SensitiveWordMixin:
             await self.db.commit()
         except aiosqlite.Error as e:
             await self.db.rollback()
-            raise DBError(f"创建敏感词表失败: {e}")
+            raise DBError(f"创建敏感词表失败: {e!s}")
 
     async def add_sensitive_word(self, word: str) -> str:
         """
@@ -60,7 +60,7 @@ class SensitiveWordMixin:
                 return result[0] if result else word_id
         except aiosqlite.Error as e:
             await self.db.rollback()
-            raise DBError(f"添加敏感词失败：{e}")
+            raise DBError(f"添加敏感词失败：{e!s}")
 
     async def get_sensitive_words(
         self, limit: int = 100, offset: int = 0
@@ -91,7 +91,7 @@ class SensitiveWordMixin:
                 for row in rows
             ]
         except aiosqlite.Error as e:
-            raise DBError(f"获取敏感词失败：{e}")
+            raise DBError(f"获取敏感词失败：{e!s}")
 
     async def get_sensitive_words_count(self) -> int:
         """
@@ -112,7 +112,7 @@ class SensitiveWordMixin:
                 result = await cursor.fetchone()
             return result[0] if result else 0
         except aiosqlite.Error as e:
-            raise DBError(f"获取敏感词总数失败：{e}")
+            raise DBError(f"获取敏感词总数失败：{e!s}")
 
     async def search_sensitive_words(
         self, search_term: str, limit: int = 100, offset: int = 0
@@ -145,7 +145,7 @@ class SensitiveWordMixin:
                 for row in rows
             ]
         except aiosqlite.Error as e:
-            raise DBError(f"搜索敏感词失败：{e}")
+            raise DBError(f"搜索敏感词失败：{e!s}")
 
     async def delete_sensitive_word(self, word_id: str) -> bool:
         """
@@ -172,4 +172,4 @@ class SensitiveWordMixin:
                 return deleted
         except aiosqlite.Error as e:
             await self.db.rollback()
-            raise DBError(f"删除敏感词失败：{e}")
+            raise DBError(f"删除敏感词失败：{e!s}")

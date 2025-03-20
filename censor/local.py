@@ -53,9 +53,9 @@ class LocalCensor(CensorBase):
                 )
                 self._is_built.set()
             except ValueError as e:
-                raise CensorError(f"无效模式: {e}") from e
+                raise CensorError(f"无效模式: {e!s}") from e
             except Exception as e:
-                raise CensorError(f"构建失败: {e}") from e
+                raise CensorError(f"构建失败: {e!s}") from e
 
     async def _reinitialize(self) -> None:
         self._shutdown.clear()
