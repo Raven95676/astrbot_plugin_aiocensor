@@ -1,14 +1,13 @@
 import asyncio
-import logging
 import os
 from asyncio import CancelledError
 from contextlib import AbstractAsyncContextManager
 from typing import Any, Callable, Coroutine, Optional, Union
 
+from astrbot.api import logger
+
 from .common.interfaces import CensorBase  # type: ignore
 from .common.types import CensorResult, Message, RiskLevel  # type: ignore
-
-logger = logging.getLogger(__name__)
 
 
 class CensorFlow(AbstractAsyncContextManager):

@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from typing import Any
@@ -6,12 +5,15 @@ from typing import Any
 import jwt
 from quart import Quart, Response, jsonify, request, send_from_directory
 
+from astrbot.api import logger
+
+from ..censor_flow import CensorFlow  # type:ignore
 from ..db import DBManager  # type:ignore
 
-logger = logging.getLogger(__name__)
 
-
-def create_app(config: dict[str, str], db_mgr: DBManager) -> Quart:
+def create_app(
+    config: dict[str, str], db_mgr: DBManager, censor_flow: CensorFlow
+) -> Quart:
     """创建并配置Quart应用实例
 
     Args:
