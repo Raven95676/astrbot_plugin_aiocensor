@@ -14,11 +14,11 @@ class CensorFlow(AbstractAsyncContextManager):
     __slots__ = (
         "_text_censor",
         "_image_censor",
-        "_username_censor",
+        "_userid_censor",
         "_num_workers",
         "_text_queue",
         "_image_queue",
-        "_username_queue",
+        "_userid_queue",
         "_tasks",
         "_shutdown",
         "_all_tasks_done",
@@ -29,7 +29,7 @@ class CensorFlow(AbstractAsyncContextManager):
         self,
         text_censor: CensorBase,
         image_censor: CensorBase | None = None,
-        username_censor: CensorBase | None = None,
+        userid_censor: CensorBase | None = None,
         num_workers: int | None = None,
     ) -> None:
         """
@@ -38,26 +38,26 @@ class CensorFlow(AbstractAsyncContextManager):
         Args:
             text_censor: 用于文本审核的 CensorBase 实例。
             image_censor: 用于图片审核的 CensorBase 实例，默认为 text_censor。
-            username_censor: 用于用户名黑名单校验的 CensorBase 实例，默认为 text_censor。
+            userid_censor: 用于用户ID黑名单校验的 CensorBase 实例，默认为 text_censor。
         """
-        self._initialize(text_censor, image_censor, username_censor, num_workers)
+        self._initialize(text_censor, image_censor, userid_censor, num_workers)
 
     def _initialize(
         self,
         text_censor: CensorBase,
         image_censor: CensorBase | None = None,
-        username_censor: CensorBase | None = None,
+        userid_censor: CensorBase | None = None,
         num_workers: int | None = None,
     ) -> None:
         """初始化 CensorFlow 实例配置"""
         self._text_censor: CensorBase = text_censor
         self._image_censor: CensorBase = image_censor or text_censor
-        self._username_censor: CensorBase = username_censor or text_censor
+        self._userid_censor: CensorBase = userid_censor or text_censor
         self._num_workers: int = num_workers or min(5, (os.cpu_count() or 1) * 2)
 
         self._text_queue: asyncio.Queue = asyncio.Queue()
         self._image_queue: asyncio.Queue = asyncio.Queue()
-        self._username_queue: asyncio.Queue = asyncio.Queue()
+        self._userid_queue: asyncio.Queue = asyncio.Queue()
 
         self._tasks: list[asyncio.Task] = []
         self._shutdown: asyncio.Event = asyncio.Event()
@@ -101,9 +101,9 @@ class CensorFlow(AbstractAsyncContextManager):
             self._tasks.append(
                 asyncio.create_task(
                     self._worker(
-                        self._username_queue,
-                        self._username_censor.detect_text,
-                        f"username-worker-{i}",
+                        self._userid_queue,
+                        self._userid_censor.detect_text,
+                        f"userid-worker-{i}",
                     )
                 )
             )
@@ -217,9 +217,9 @@ class CensorFlow(AbstractAsyncContextManager):
         await self._image_queue.put((msg, future, callback))
         return await future
 
-    async def submit_username(
+    async def submit_userid(
         self,
-        username: str,
+        userid: str,
         source: str,
         callback: Optional[
             Union[
@@ -229,19 +229,19 @@ class CensorFlow(AbstractAsyncContextManager):
         ] = None,
     ) -> CensorResult:
         """
-        提交用户名审核任务，检查是否在黑名单中。
+        提交用户ID审核任务，检查是否在黑名单中。
 
         Args:
-            username: 待审核的用户名。
-            source: 用户名来源。
+            userid: 待审核的用户ID。
+            source: 用户ID来源。
             callback: 审核结果回调函数，可选。
 
         Returns:
             审核结果。
         """
-        msg: Message = Message(username, source)
+        msg: Message = Message(userid, source)
         future: asyncio.Future[CensorResult] = asyncio.Future()
-        await self._username_queue.put((msg, future, callback))
+        await self._userid_queue.put((msg, future, callback))
         return await future
 
     async def close(self, timeout: float = 10) -> None:
@@ -257,7 +257,7 @@ class CensorFlow(AbstractAsyncContextManager):
         self._shutdown.set()
 
         pending_queues = []
-        for q in [self._text_queue, self._image_queue, self._username_queue]:
+        for q in [self._text_queue, self._image_queue, self._userid_queue]:
             if not q.empty():
                 pending_queues.append(q.join())
 
@@ -285,10 +285,10 @@ class CensorFlow(AbstractAsyncContextManager):
                 await self._image_censor.close()
 
             if (
-                self._username_censor is not self._text_censor
-                and self._username_censor is not self._image_censor
+                self._userid_censor is not self._text_censor
+                and self._userid_censor is not self._image_censor
             ):
-                await self._username_censor.close()
+                await self._userid_censor.close()
 
         except Exception as e:
             logger.error(f"关闭时发生错误: {e}")
@@ -297,7 +297,7 @@ class CensorFlow(AbstractAsyncContextManager):
         self,
         text_censor: CensorBase | None = None,
         image_censor: CensorBase | None = None,
-        username_censor: CensorBase | None = None,
+        userid_censor: CensorBase | None = None,
         num_workers: int | None = None,
     ) -> None:
         """
@@ -306,7 +306,7 @@ class CensorFlow(AbstractAsyncContextManager):
         Args:
             text_censor: 新的文本审核器，None表示保持不变
             image_censor: 新的图片审核器，None表示保持不变
-            username_censor: 新的用户名审核器，None表示保持不变
+            userid_censor: 新的用户ID审核器，None表示保持不变
         """
         was_running = self._is_running
 
@@ -315,10 +315,10 @@ class CensorFlow(AbstractAsyncContextManager):
 
         new_text_censor = text_censor or self._text_censor
         new_image_censor = image_censor or self._image_censor
-        new_username_censor = username_censor or self._username_censor
+        new_userid_censor = userid_censor or self._userid_censor
 
         self._initialize(
-            new_text_censor, new_image_censor, new_username_censor, num_workers
+            new_text_censor, new_image_censor, new_userid_censor, num_workers
         )
 
         if was_running:
@@ -335,9 +335,9 @@ class CensorFlow(AbstractAsyncContextManager):
         return self._image_censor
 
     @property
-    def username_censor(self) -> CensorBase:
-        """获取当前的用户名审核器"""
-        return self._username_censor
+    def userid_censor(self) -> CensorBase:
+        """获取当前的用户ID审核器"""
+        return self._userid_censor
 
     @property
     def is_running(self) -> bool:

@@ -36,7 +36,7 @@ class WebUI:
         self.port = config.get("webui",{}).get("port", 8192)
         self.app = self._create_app()
         self._server_task: asyncio.Task | None = None
-        self._should_exit = asyncio.Event()
+        self._shutdown = asyncio.Event()
 
     def _create_app(self) -> Quart:
         """创建并配置Quart应用实例
@@ -370,7 +370,7 @@ class WebUI:
     async def start(self):
         """启动Web UI服务器"""
         logger.info(f"在 {self.host}:{self.port} 启动AIOCENSOR WebUI")
-        self._should_exit.clear()
+        self._shutdown.clear()
 
         self._server_task = asyncio.create_task(self._run_server())
 
@@ -399,12 +399,12 @@ class WebUI:
 
     async def _wait_for_exit(self):
         """等待退出信号"""
-        await self._should_exit.wait()
+        await self._shutdown.wait()
 
     async def close(self):
         """关闭Web UI服务器"""
         if self._server_task and not self._server_task.done():
-            self._should_exit.set()
+            self._shutdown.set()
 
             try:
                 await asyncio.wait_for(self._server_task, timeout=5.0)
