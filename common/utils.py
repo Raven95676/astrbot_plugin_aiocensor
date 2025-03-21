@@ -1,5 +1,5 @@
 import asyncio
-import functools
+from functools import wraps
 from typing import Any, Awaitable, Callable, TypeVar
 
 import aiohttp
@@ -30,7 +30,7 @@ def censor_retry(
     """
 
     def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
-        @functools.wraps(func)
+        @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> T:
             for attempt in range(max_retries):
                 try:
