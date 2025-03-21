@@ -1,5 +1,4 @@
 import asyncio
-import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -26,7 +25,7 @@ class LocalCensor(CensorBase):
         self._patterns = config.get("patterns", set())
         self._matcher = AhoMatcher(use_logic=config.get("use_logic", True))
         self._is_built = asyncio.Event()
-        self._max_workers = config.get("max_threads", min(5, (os.cpu_count() or 1) * 2))
+        self._max_workers = 1
         self._executor: ThreadPoolExecutor | None = None
         self._shutdown = asyncio.Event()
         self._lock = asyncio.Lock()

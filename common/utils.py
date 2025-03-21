@@ -1,4 +1,5 @@
 import asyncio
+import base64
 from functools import wraps
 from typing import Any, Awaitable, Callable, TypeVar
 
@@ -47,3 +48,32 @@ def censor_retry(
         return wrapper
 
     return decorator
+
+
+def get_image_format(img_b64: str):
+    data = base64.b64decode(img_b64)
+    if data.startswith(b"\x89\x50\x4e\x47\x0d\x0a\x1a\x0a"):
+        return "png"
+    elif data.startswith(b"\xff\xd8\xff"):
+        return "jpeg"
+    elif data.startswith(b"GIF87a") or data.startswith(b"GIF89a"):
+        return "gif"
+    elif data.startswith(b"BM"):
+        return "bmp"
+    elif data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+        return "webp"
+    elif data.startswith(b"\x00\x00\x01\x00"):
+        return "ico"
+    elif data.startswith(b"icns"):
+        return "icns"
+    elif (
+        data.startswith(b"\x49\x49\x2a\x00")
+        or data.startswith(b"\x4d\x4d\x00\x2a")
+        or data.startswith(b"\x49\x49\x2b\x00")
+        or data.startswith(b"\x4d\x4d\x00\x2b")
+    ):
+        return "tiff"
+    elif data.startswith(b"\x00\x00\x00\x0c\x6a\x50\x20\x20\x0d\x0a\x87\x0a"):
+        return "jp2"
+    else:
+        return None
