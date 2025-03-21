@@ -18,11 +18,9 @@ class WebUI:
 
     def __init__(
         self,
-        config: dict[str, str],
+        config: dict[str, Any],
         db_mgr: DBManager,
-        censor_flow: CensorFlow,
-        host: str = "0.0.0.0",
-        port: int = 8192,
+        censor_flow: CensorFlow
     ):
         """初始化WebUI实例
 
@@ -30,14 +28,12 @@ class WebUI:
             config (dict[str, str]): 应用配置字典
             db_mgr (DBManager): 数据库管理器实例
             censor_flow (CensorFlow): 审核流实例
-            host (str): 主机地址，默认为"0.0.0.0"
-            port (int): 端口号，默认为8192
         """
         self.config = config
         self.db_mgr = db_mgr
         self.censor_flow = censor_flow
-        self.host = host
-        self.port = port
+        self.host = config.get("webui",{}).get("host", "0.0.0.0")
+        self.port = config.get("webui",{}).get("port", 8192)
         self.app = self._create_app()
         self._server_task: asyncio.Task | None = None
         self._should_exit = asyncio.Event()
@@ -50,7 +46,8 @@ class WebUI:
         """
         app = Quart(__name__, static_folder="dist", static_url_path="")
 
-        SECRET_KEY = self.config.get("secret_key", "default_secret_key")
+        SECRET_KEY = self.config.get("webui",{}).get("secret_key", "default_secret_key")
+        PASSWORD = self.config.get("webui",{}).get("password", "default")
 
         async def format_response(
             data: dict[str, Any] | None = None,
@@ -165,7 +162,7 @@ class WebUI:
                 if not password:
                     return await format_response(message="缺少密码", status_code=400)
 
-                expected_password = self.config.get("password", "default")
+                expected_password = PASSWORD
                 if password != expected_password:
                     logger.warning("无效的登录尝试，密码错误")
                     return await format_response(message="密码错误", status_code=401)
