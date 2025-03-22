@@ -1,345 +1,148 @@
-import asyncio
-import os
-from asyncio import CancelledError
 from contextlib import AbstractAsyncContextManager
-from typing import Any, Callable, Coroutine, Optional, Union
+from typing import Any
 
 from astrbot.api import logger
 
 from .common.interfaces import CensorBase  # type: ignore
-from .common.types import CensorResult, Message, RiskLevel  # type: ignore
+from .common.types import CensorResult, Message  # type: ignore
 
 
 class CensorFlow(AbstractAsyncContextManager):
-    __slots__ = (
-        "_text_censor",
-        "_image_censor",
-        "_userid_censor",
-        "_num_workers",
-        "_text_queue",
-        "_image_queue",
-        "_userid_queue",
-        "_tasks",
-        "_shutdown",
-        "_all_tasks_done",
-        "_is_running",
-    )
+    __slots__ = ("_text_censor", "_image_censor", "_userid_censor", "_is_running")
 
     def __init__(
         self,
         text_censor: CensorBase,
         image_censor: CensorBase | None = None,
         userid_censor: CensorBase | None = None,
-        num_workers: int | None = None,
     ) -> None:
         """
         初始化 CensorFlow 实例。
 
-        Args:
+        参数:
             text_censor: 用于文本审核的 CensorBase 实例。
             image_censor: 用于图片审核的 CensorBase 实例，默认为 text_censor。
             userid_censor: 用于用户ID黑名单校验的 CensorBase 实例，默认为 text_censor。
         """
-        self._initialize(text_censor, image_censor, userid_censor, num_workers)
+        self._text_censor = text_censor
+        self._image_censor = image_censor or text_censor
+        self._userid_censor = userid_censor or text_censor
+        self._is_running = False
 
-    def _initialize(
-        self,
-        text_censor: CensorBase,
-        image_censor: CensorBase | None = None,
-        userid_censor: CensorBase | None = None,
-        num_workers: int | None = None,
-    ) -> None:
-        """初始化 CensorFlow 实例配置"""
-        self._text_censor: CensorBase = text_censor
-        self._image_censor: CensorBase = image_censor or text_censor
-        self._userid_censor: CensorBase = userid_censor or text_censor
-        self._num_workers: int = num_workers or min(5, (os.cpu_count() or 1) * 2)
+    @property
+    def is_running(self) -> bool:
+        """返回实例是否正在运行"""
+        return self._is_running
 
-        self._text_queue: asyncio.Queue = asyncio.Queue()
-        self._image_queue: asyncio.Queue = asyncio.Queue()
-        self._userid_queue: asyncio.Queue = asyncio.Queue()
+    @property
+    def text_censor(self) -> CensorBase:
+        """返回文本审核实例"""
+        return self._text_censor
 
-        self._tasks: list[asyncio.Task] = []
-        self._shutdown: asyncio.Event = asyncio.Event()
-        self._all_tasks_done: asyncio.Event = asyncio.Event()
-        self._is_running: bool = False
+    @property
+    def image_censor(self) -> CensorBase:
+        """返回图片审核实例"""
+        return self._image_censor
+
+    @property
+    def userid_censor(self) -> CensorBase:
+        """返回用户ID识别实例"""
+        return self._userid_censor
 
     async def __aenter__(self) -> "CensorFlow":
-        if not self._is_running:
-            await self._start_workers()
+        self._is_running = True
         return self
 
     async def __aexit__(self, *exc_info: Any) -> None:
         await self.close()
 
-    async def _start_workers(self) -> None:
-        """初始化Worker"""
-        if self._is_running:
-            return
-
-        for i in range(self._num_workers):
-            self._tasks.append(
-                asyncio.create_task(
-                    self._worker(
-                        self._text_queue,
-                        self._text_censor.detect_text,
-                        f"text-worker-{i}",
-                    )
-                )
-            )
-
-            self._tasks.append(
-                asyncio.create_task(
-                    self._worker(
-                        self._image_queue,
-                        self._image_censor.detect_image,
-                        f"image-worker-{i}",
-                    )
-                )
-            )
-
-            self._tasks.append(
-                asyncio.create_task(
-                    self._worker(
-                        self._userid_queue,
-                        self._userid_censor.detect_text,
-                        f"userid-worker-{i}",
-                    )
-                )
-            )
-
-        self._is_running = True
-        self._shutdown.clear()
-        self._all_tasks_done.clear()
-
-    async def _worker(
+    async def _process_task(
         self,
-        queue: asyncio.Queue,
-        detector: Callable[[str], Coroutine[Any, Any, tuple[RiskLevel, set[str]]]],
-        name: str,
-    ) -> None:
-        """
-        通用的工作线程函数。
-
-        Args:
-            queue: 任务队列。
-            detector: 审核函数。
-            name: 工作线程名称。
-        """
-        logger.debug(f"{name} 已启动")
+        msg: Message,
+        detector: Any,
+    ) -> CensorResult:
+        """处理单个审核任务。"""
         try:
-            while not self._shutdown.is_set() or not queue.empty():
-                try:
-                    msg, future, callback = await queue.get()
-
-                    try:
-                        risk, reasons = await detector(msg.content)
-                        result: CensorResult = CensorResult(msg, risk, reasons)
-
-                        if not future.done():
-                            future.set_result(result)
-
-                        if callback is not None:
-                            try:
-                                if asyncio.iscoroutinefunction(callback):
-                                    await callback(result)
-                                else:
-                                    callback(result)
-                            except Exception as e:
-                                logger.error(f"回调错误在 {name}: {e!s}", exc_info=True)
-                                if not future.done():
-                                    future.set_exception(e)
-                    except Exception as e:
-                        if not future.done():
-                            future.set_exception(e)
-                        logger.error(f"{name} 处理时发生错误: {e!s}")
-                    finally:
-                        queue.task_done()
-                except Exception as e:
-                    logger.error(f"{name} 处理时发生错误: {e!s}")
-                    await asyncio.sleep(0.01)
-        except CancelledError:
-            logger.debug(f"{name} 已取消")
-        finally:
-            logger.debug(f"{name} 已退出")
+            risk, reasons = await detector(msg.content)
+            return CensorResult(msg, risk, reasons)
+        except Exception as e:
+            logger.error(f"处理错误: {e!s}", exc_info=True)
+            raise
 
     async def submit_text(
         self,
         content: str,
         source: str,
-        callback: Optional[
-            Union[
-                Callable[[CensorResult], Any],
-                Callable[[CensorResult], Coroutine[Any, Any, Any]],
-            ]
-        ] = None,
     ) -> CensorResult:
         """
         提交文本审核任务。
 
-        Args:
+        参数:
             content: 待审核的文本内容。
             source: 文本来源。
-            callback: 审核结果回调函数，可选。
 
-        Returns:
+        返回:
             审核结果。
         """
-        msg: Message = Message(content, source)
-        future: asyncio.Future[CensorResult] = asyncio.Future()
-        await self._text_queue.put((msg, future, callback))
-        return await future
+        if not self._is_running:
+            raise RuntimeError("CensorFlow 未运行")
+
+        msg = Message(content, source)
+        return await self._process_task(msg, self._text_censor.detect_text)
 
     async def submit_image(
         self,
         content: str,
         source: str,
-        callback: Optional[
-            Union[
-                Callable[[CensorResult], Any],
-                Callable[[CensorResult], Coroutine[Any, Any, Any]],
-            ]
-        ] = None,
     ) -> CensorResult:
         """
         提交图片审核任务。
 
-        Args:
+        参数:
             content: 待审核的图片内容。
             source: 图片来源。
-            callback: 审核结果回调函数，可选。
 
-        Returns:
+        返回:
             审核结果。
         """
-        msg: Message = Message(content, source)
-        future: asyncio.Future[CensorResult] = asyncio.Future()
-        await self._image_queue.put((msg, future, callback))
-        return await future
+        if not self._is_running:
+            raise RuntimeError("CensorFlow 未运行")
+
+        msg = Message(content, source)
+        return await self._process_task(msg, self._image_censor.detect_image)
 
     async def submit_userid(
         self,
         userid: str,
         source: str,
-        callback: Optional[
-            Union[
-                Callable[[CensorResult], Any],
-                Callable[[CensorResult], Coroutine[Any, Any, Any]],
-            ]
-        ] = None,
     ) -> CensorResult:
         """
-        提交用户ID审核任务，检查是否在黑名单中。
+        提交用户ID识别任务。
 
-        Args:
-            userid: 待审核的用户ID。
+        参数:
+            userid: 待识别的用户ID。
             source: 用户ID来源。
-            callback: 审核结果回调函数，可选。
 
-        Returns:
-            审核结果。
+        返回:
+            识别结果。
         """
-        msg: Message = Message(userid, source)
-        future: asyncio.Future[CensorResult] = asyncio.Future()
-        await self._userid_queue.put((msg, future, callback))
-        return await future
+        if not self._is_running:
+            raise RuntimeError("CensorFlow 未运行")
 
-    async def close(self, timeout: float = 10) -> None:
-        """
-        关闭 CensorFlow 实例，清理资源。
+        msg = Message(userid, source)
+        return await self._process_task(msg, self._userid_censor.detect_text)
 
-        Args:
-            timeout: 等待队列处理完成的超时时间，默认为 10 秒。
-        """
+    async def close(self) -> None:
+        """关闭 CensorFlow 实例，清理资源。"""
         if not self._is_running:
             return
 
-        self._shutdown.set()
-
-        pending_queues = []
-        for q in [self._text_queue, self._image_queue, self._userid_queue]:
-            if not q.empty():
-                pending_queues.append(q.join())
-
-        if pending_queues:
-            try:
-                await asyncio.wait_for(asyncio.gather(*pending_queues), timeout=timeout)
-            except asyncio.TimeoutError:
-                logger.warning("队列处理超时，可能有部分任务未完成")
-
-        for t in self._tasks:
-            if not t.done():
-                t.cancel()
-
-        if self._tasks:
-            await asyncio.gather(*self._tasks, return_exceptions=True)
-
-        self._tasks.clear()
-        self._all_tasks_done.set()
         self._is_running = False
-
         try:
             await self._text_censor.close()
-
             if self._image_censor is not self._text_censor:
                 await self._image_censor.close()
-
-            if (
-                self._userid_censor is not self._text_censor
-                and self._userid_censor is not self._image_censor
-            ):
+            if self._userid_censor is not self._text_censor:
                 await self._userid_censor.close()
-
         except Exception as e:
-            logger.error(f"关闭时发生错误: {e}")
-
-    async def reload_censors(
-        self,
-        text_censor: CensorBase | None = None,
-        image_censor: CensorBase | None = None,
-        userid_censor: CensorBase | None = None,
-        num_workers: int | None = None,
-    ) -> None:
-        """
-        重载审核器
-
-        Args:
-            text_censor: 新的文本审核器，None表示保持不变
-            image_censor: 新的图片审核器，None表示保持不变
-            userid_censor: 新的用户ID审核器，None表示保持不变
-        """
-        was_running = self._is_running
-
-        if was_running:
-            await self.close()
-
-        new_text_censor = text_censor or self._text_censor
-        new_image_censor = image_censor or self._image_censor
-        new_userid_censor = userid_censor or self._userid_censor
-
-        self._initialize(
-            new_text_censor, new_image_censor, new_userid_censor, num_workers
-        )
-
-        if was_running:
-            await self._start_workers()
-
-    @property
-    def text_censor(self) -> CensorBase:
-        """获取当前的文本审核器"""
-        return self._text_censor
-
-    @property
-    def image_censor(self) -> CensorBase:
-        """获取当前的图片审核器"""
-        return self._image_censor
-
-    @property
-    def userid_censor(self) -> CensorBase:
-        """获取当前的用户ID审核器"""
-        return self._userid_censor
-
-    @property
-    def is_running(self) -> bool:
-        """返回当前服务是否运行中"""
-        return self._is_running
+            logger.error(f"关闭时出错: {e}")
