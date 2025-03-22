@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
 from functools import wraps
+import os
 from typing import Any
 
 import jwt
@@ -18,19 +19,19 @@ class WebUI:
     def __init__(
         self,
         config: dict[str, Any],
-        db_mgr: DBManager
     ):
         """初始化WebUI实例
 
         Args:
             config (dict[str, str]): 应用配置字典
-            db_mgr (DBManager): 数据库管理器实例
-            censor_flow (CensorFlow): 审核流实例
         """
         self.config = config
-        self.db_mgr = db_mgr
-        self.host = config.get("webui",{}).get("host", "0.0.0.0")
-        self.port = config.get("webui",{}).get("port", 8192)
+        data_path = os.path.join(os.getcwd(), "data", "aiocensor")
+        if not os.path.exists(data_path):
+            os.makedirs(data_path)
+        self.db_mgr = DBManager(os.path.join(data_path, "censor.db"))
+        self.host = config.get("webui", {}).get("host", "0.0.0.0")
+        self.port = config.get("webui", {}).get("port", 8192)
         self.app = self._create_app()
         self._server_task: asyncio.Task | None = None
         self._shutdown = asyncio.Event()
@@ -43,8 +44,10 @@ class WebUI:
         """
         app = Quart(__name__, static_folder="dist", static_url_path="")
 
-        SECRET_KEY = self.config.get("webui",{}).get("secret_key", "default_secret_key")
-        PASSWORD = self.config.get("webui",{}).get("password", "default")
+        SECRET_KEY = self.config.get("webui", {}).get(
+            "secret_key", "default_secret_key"
+        )
+        PASSWORD = self.config.get("webui", {}).get("password", "default")
 
         async def format_response(
             data: dict[str, Any] | None = None,

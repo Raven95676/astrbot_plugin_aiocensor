@@ -15,12 +15,16 @@
     "description":"是否启用图片审核",
     "type":"bool"
   },
-  "enable_allmsg_censor":{
+  "enable_private_msg_censor":{
+    "description":"是否启用私聊文本审核",
+    "type":"bool"
+  },
+  "enable_group_msg_censor":{
     "description":"是否启用群管功能（审核群内所有消息）",
     "hint":"仅aiocqhttp支持禁言与撤回",
     "type":"bool"
   },
-  "allmsg_censor_list":{
+  "group_list":{
     "description":"启用群管功能的群聊",
     "hint":"启用群管功能的群号列表，留空则对所有群生效",
     "obvious_hint": true,

@@ -9,6 +9,8 @@
 
 Astrbot 综合内容安全+群管插件。
 
+撤回+禁言功能使用了[astrbot_plugin_anti_porn](https://github.com/zouyonghe/astrbot_plugin_anti_porn)的源码。
+
 如果你认为这个项目有用，帮忙点个star，谢谢！
 
 ## 兼容的适配器

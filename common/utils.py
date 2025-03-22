@@ -1,8 +1,10 @@
 import asyncio
+from asyncio.log import logger
 import base64
 from functools import wraps
 from typing import Any, Awaitable, Callable, TypeVar
-
+from aiocqhttp import CQHttp  # type: ignore
+from astrbot.api.event import AstrMessageEvent
 import aiohttp
 
 from .types import CensorError
@@ -77,3 +79,55 @@ def get_image_format(img_b64: str):
         return "jp2"
     else:
         return None
+
+
+# 本段代码来自于https://raw.githubusercontent.com/zouyonghe/astrbot_plugin_anti_porn/refs/heads/master/main.py
+async def _admin_check(self, event: AstrMessageEvent, client: CQHttp) -> bool:
+    """检查当前 bot 是否是群管理员或群主并且消息发送者不是管理员或群主"""
+    try:
+        sender_id = int(event.get_sender_id())
+        group_id = int(event.get_group_id())
+        bot_id = int(event.get_self_id())
+
+        bot_info = await client.get_group_member_info(
+            group_id=group_id,
+            user_id=bot_id,
+            no_cache=True,
+            self_id=int(event.get_self_id()),
+        )
+        sender_info = await client.get_group_member_info(
+            group_id=group_id,
+            user_id=sender_id,
+            no_cache=True,
+            self_id=int(event.get_self_id()),
+        )
+        return bot_info.get("role") in ["admin", "owner"] and sender_info.get(
+            "role"
+        ) not in ["admin", "owner"]
+    except Exception as e:
+        logger.error(f"获取群成员信息失败: {e}")
+        return False
+
+
+# 本段代码来自于https://raw.githubusercontent.com/zouyonghe/astrbot_plugin_anti_porn/refs/heads/master/main.py
+async def dispose_msg(self, event: AstrMessageEvent, message: str, client: CQHttp):
+    """删除消息并禁言用户"""
+    if not await _admin_check(self, event, client):
+        logger.error("Bot不是群的所有者或管理员")
+        return
+    try:
+        await client.delete_msg(
+            message_id=int(event.message_obj.message_id),
+            self_id=int(event.get_self_id()),
+        )
+
+        await client.set_group_ban(
+            group_id=int(event.get_group_id()),
+            user_id=int(event.get_sender_id()),
+            duration=5 * 60,
+            self_id=int(event.get_self_id()),
+        )
+    except Exception as e:
+        logger.error(f"发生错误，无法禁言及撤回： {e}")
+
+    event.stop_event()

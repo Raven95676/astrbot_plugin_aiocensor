@@ -38,11 +38,13 @@ class CensorResult:
         message (Message): 被审查的消息。
         risk_level (RiskLevel): 风险等级。
         reason (set[str]): 风险原因集合。
+        extra (Optional[dict]): 额外的信息。
     """
 
     message: Message
     risk_level: RiskLevel
     reason: set[str]
+    extra: dict | None = None
 
 
 @dataclass
@@ -53,10 +55,12 @@ class AuditLogEntry:
     Args:
         id (str): 审计日志的唯一标识符。
         result (CensorResult): 审查结果。
+        extra (Optional[dict]): 额外的信息。
     """
 
     id: str
     result: CensorResult
+    extra: dict | None = None
 
 
 @dataclass

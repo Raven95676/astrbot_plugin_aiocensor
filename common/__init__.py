@@ -10,6 +10,7 @@ from .types import (
 )
 
 from .interfaces import CensorBase
+from .utils import censor_retry,get_image_format, dispose_msg
 
 
 __version__ = "0.1.0"
@@ -25,5 +26,8 @@ __all__ = [
     "SensitiveWordEntry",
     "BlacklistEntry",
     "DBError",
-    "CensorError"
+    "CensorError",
+    "censor_retry",
+    "get_image_format",
+    "dispose_msg"
 ]
