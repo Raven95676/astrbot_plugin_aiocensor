@@ -33,8 +33,13 @@ class AuditLogMixin:
                 source TEXT NOT NULL,
                 message_timestamp INTEGER NOT NULL,
                 risk_level INTEGER NOT NULL,
-                reason TEXT NOT NULL
+                reason TEXT NOT NULL,
+                result_extra TEXT,
+                entry_extra TEXT
             )""")
+            await self.db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_logs_source ON audit_logs(source)"
+            )
             await self.db.execute(
                 "CREATE INDEX IF NOT EXISTS idx_logs_time ON audit_logs(message_timestamp)"
             )
@@ -46,12 +51,15 @@ class AuditLogMixin:
             await self.db.rollback()
             raise DBError(f"创建审计日志表失败: {e!s}")
 
-    async def add_audit_log(self, result: CensorResult) -> str:
+    async def add_audit_log(
+        self, result: CensorResult, extra: dict | None = None
+    ) -> str:
         """
         添加一条审计日志记录。
 
         Args:
-            result: 审查结果对象，包含消息内容、来源、时间戳、风险等级和原因。
+            result: 审查结果对象，包含消息内容、来源、时间戳、风险等级、原因和额外信息。
+            extra: 审计日志条目的额外信息，可选。
         Returns:
             新添加的审计日志记录的ID。
         Raises:
@@ -61,10 +69,17 @@ class AuditLogMixin:
             raise DBError("数据库未初始化或连接已关闭")
         log_id = str(uuid.uuid4())
         reason_str = json.dumps(list(result.reason)) if result.reason else ""
+        result_extra_str = json.dumps(result.extra) if result.extra else None
+        entry_extra_str = json.dumps(extra) if extra else None
+
         try:
             async with self.db.cursor() as cursor:
                 await cursor.execute(
-                    "INSERT INTO audit_logs (id, content, source, message_timestamp, risk_level, reason) VALUES (?, ?, ?, ?, ?, ?)",
+                    """
+                    INSERT INTO audit_logs
+                    (id, content, source, message_timestamp, risk_level, reason, result_extra, entry_extra)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
                     (
                         log_id,
                         result.message.content,
@@ -72,6 +87,8 @@ class AuditLogMixin:
                         result.message.timestamp,
                         result.risk_level.value,
                         reason_str,
+                        result_extra_str,
+                        entry_extra_str,
                     ),
                 )
                 await self.db.commit()
@@ -153,7 +170,10 @@ class AuditLogMixin:
         """
         if not self.db:
             raise DBError("数据库未初始化或连接已关闭")
-        query = "SELECT id, content, source, message_timestamp, risk_level, reason FROM audit_logs WHERE 1=1"
+        query = """
+            SELECT id, content, source, message_timestamp, risk_level, reason, result_extra, entry_extra
+            FROM audit_logs WHERE 1=1
+        """
         params: list[Any] = []
         if start_time:
             query += " AND message_timestamp >= ?"
@@ -206,7 +226,11 @@ class AuditLogMixin:
         """
         if not self.db:
             raise DBError("数据库未初始化或连接已关闭")
-        query = "SELECT id, content, source, message_timestamp, risk_level, reason FROM audit_logs WHERE (content LIKE ? OR reason LIKE ?)"
+        query = """
+            SELECT id, content, source, message_timestamp, risk_level, reason, result_extra, entry_extra
+            FROM audit_logs
+            WHERE (content LIKE ? OR reason LIKE ?)
+        """
         search_pattern = f"%{search_term}%"
         params: list[Any] = [search_pattern, search_pattern]
         if start_time:
@@ -271,14 +295,32 @@ class AuditLogMixin:
             message_ts,
             risk_level_value,
             reason_str,
+            result_extra_str,
+            entry_extra_str,
         ) = row
+
         try:
             reason_set = set(json.loads(reason_str)) if reason_str else set()
         except json.JSONDecodeError:
             reason_set = set()
+
+        try:
+            result_extra = json.loads(result_extra_str) if result_extra_str else None
+        except json.JSONDecodeError:
+            result_extra = None
+
+        try:
+            entry_extra = json.loads(entry_extra_str) if entry_extra_str else None
+        except json.JSONDecodeError:
+            entry_extra = None
+
         risk_level_enum = RiskLevel(risk_level_value)
         message = Message(content=content, source=source_str, timestamp=message_ts)
         censor_result = CensorResult(
-            message=message, risk_level=risk_level_enum, reason=reason_set
+            message=message,
+            risk_level=risk_level_enum,
+            reason=reason_set,
+            extra=result_extra,
         )
-        return AuditLogEntry(id=log_id, result=censor_result)
+
+        return AuditLogEntry(id=log_id, result=censor_result, extra=entry_extra)

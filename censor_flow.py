@@ -103,6 +103,7 @@ class CensorFlow(AbstractAsyncContextManager):
         self,
         content: str,
         source: str,
+        extra: dict[str, Any] | None = None,
     ) -> CensorResult:
         """
         提交文本审核任务
@@ -120,7 +121,10 @@ class CensorFlow(AbstractAsyncContextManager):
         msg = Message(content, source)
         try:
             risk, reasons = await self._text_censor.detect_text(msg.content)
-            return CensorResult(msg, risk, reasons)
+            if extra:
+                return CensorResult(msg, risk, reasons, extra)
+            else:
+                return CensorResult(msg, risk, reasons)
         except Exception as e:
             logger.error(f"处理文本审核任务时发生错误: {e!s}")
 
