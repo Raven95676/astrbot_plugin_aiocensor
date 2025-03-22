@@ -9,8 +9,7 @@ from quart import Quart, Response, jsonify, request, send_from_directory
 from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent
 
-from ..censor_flow import CensorFlow  # type:ignore
-from ..db import DBManager  # type:ignore
+from .db import DBManager  # type:ignore
 
 
 class WebUI:
@@ -19,8 +18,7 @@ class WebUI:
     def __init__(
         self,
         config: dict[str, Any],
-        db_mgr: DBManager,
-        censor_flow: CensorFlow
+        db_mgr: DBManager
     ):
         """初始化WebUI实例
 
@@ -31,7 +29,6 @@ class WebUI:
         """
         self.config = config
         self.db_mgr = db_mgr
-        self.censor_flow = censor_flow
         self.host = config.get("webui",{}).get("host", "0.0.0.0")
         self.port = config.get("webui",{}).get("port", 8192)
         self.app = self._create_app()

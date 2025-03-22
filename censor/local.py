@@ -4,6 +4,7 @@ from typing import Any
 
 from kwmatcher import AhoMatcher
 
+
 from ..common.interfaces import CensorBase  # type: ignore
 from ..common.types import CensorError, RiskLevel  # type: ignore
 
@@ -74,7 +75,7 @@ class LocalCensor(CensorBase):
 
     async def detect_text(self, text: str) -> tuple[RiskLevel, set[str]]:
         if not self._is_built.is_set():
-            raise CensorError("状态机未构建")
+            await self.build(self._patterns)
         if self._shutdown.is_set():
             raise CensorError("实例正在关闭")
 
