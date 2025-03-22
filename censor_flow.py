@@ -89,7 +89,7 @@ class CensorFlow(AbstractAsyncContextManager):
         return self._image_censor
 
     @property
-    def userid_censor(self) -> CensorBase:
+    def userid_censor(self) -> LocalCensor:
         """返回用户ID审核实例"""
         return self._userid_censor
 
