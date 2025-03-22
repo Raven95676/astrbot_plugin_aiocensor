@@ -167,7 +167,9 @@ class CensorFlow(AbstractAsyncContextManager):
         msg = Message(userid, source)
         try:
             risk, reasons = await self._userid_censor.detect_text(msg.content)
-            return CensorResult(msg, risk, {f"黑名单用户{str(reasons)[1:-1]}"})
+            return CensorResult(
+                msg, risk, {f"黑名单用户{str(reasons)[1:-1]}"} if reasons else {}
+            )
         except Exception as e:
             logger.error(f"处理用户ID识别任务时发生错误: {e!s}")
 
